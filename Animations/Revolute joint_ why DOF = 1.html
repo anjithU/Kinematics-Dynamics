@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Revolute joint: why DOF = 1</title>
+<style>
+:root{--bg:#fbfaf7;--fg:#1b1b19;--mut:#66655f;--card:#f0eee8;--acc:#c4501b;--ok:#2f7d4f;--bad:#a33;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1c1c1a;--fg:#eeeae2;--mut:#a9a69d;--card:#2a2a27;--acc:#ff8a50;--ok:#6fcf97;--bad:#ff8a8a}}
+:root[data-theme="dark"]{--bg:#1c1c1a;--fg:#eeeae2;--mut:#a9a69d;--card:#2a2a27;--acc:#ff8a50;--ok:#6fcf97;--bad:#ff8a8a}
+html,body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:860px;margin:0 auto;padding:16px}
+h1{font-size:1.4rem;margin:.2em 0}
+p{color:var(--mut);margin:.3em 0 .8em}
+#wrap{position:relative;height:52vh;min-height:320px;background:var(--card);border-radius:12px;overflow:hidden;touch-action:none;cursor:grab}
+canvas{display:block;width:100%;height:100%}
+.lb{position:absolute;font-size:12px;font-weight:600;background:var(--bg);color:var(--fg);padding:2px 7px;border-radius:6px;border:1px solid var(--mut);pointer-events:none;white-space:nowrap;transform:translate(10px,-50%)}
+.ctl{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;margin:12px 0}
+.ctl label{font-size:.85rem;color:var(--mut);display:block}
+.ctl input{width:100%;accent-color:var(--acc)}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.9rem}
+td,th{text-align:left;padding:6px 8px;border-bottom:1px solid var(--card)}
+.b{color:var(--bad);font-weight:600}.f{color:var(--ok);font-weight:700}
+.eq{font-size:1.1rem;font-weight:700;margin:.6em 0}
+</style></head>
+<body><main>
+<h1>Revolute (pin) joint: why DOF = 1</h1>
+<p>A free rigid body has 6 degrees of freedom. The pin and clevis remove 5 of them. Drag to orbit, then pull the joint apart and swing the link.</p>
+<div id="wrap"></div>
+<div class="ctl">
+<div><label>Explode</label><input id="ex" type="range" min="0" max="100" value="0"></div>
+<div><label>Rotate link about the pin: <b id="ang">0</b>°</label><input id="rot" type="range" min="-80" max="80" value="0"></div>
+</div>
+<div class="tbl"><table>
+<tr><th>Motion of the link</th><th>Status</th><th>Why</th></tr>
+<tr><td>Slide along x</td><td class="b">blocked</td><td>pin bears against the clevis holes</td></tr>
+<tr><td>Slide along y</td><td class="b">blocked</td><td>same: the hole holds the pin’s centre</td></tr>
+<tr><td>Slide along z (pin axis)</td><td class="b">blocked</td><td>the two ears trap the link’s eye</td></tr>
+<tr><td>Rotate about x</td><td class="b">blocked</td><td>pin is supported at two points, so it can’t tilt</td></tr>
+<tr><td>Rotate about y</td><td class="b">blocked</td><td>same reason</td></tr>
+<tr><td>Rotate about z (pin axis)</td><td class="f">FREE</td><td>a round pin in a round hole can spin</td></tr>
+</table></div>
+<div class="eq">DOF = 6 − 5 constraints = 1</div>
+<p>In planar mechanisms the same joint is 3 − 2 = 1: it only removes the two in-plane translations.</p>
+</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+var wrap=document.getElementById('wrap');
+var renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+wrap.appendChild(renderer.domElement);
+var scene=new THREE.Scene();
+var camera=new THREE.PerspectiveCamera(40,1,0.1,100);
+scene.add(new THREE.AmbientLight(0xffffff,0.7));
+var key=new THREE.DirectionalLight(0xffffff,0.9);key.position.set(4,6,5);scene.add(key);
+function mat(c,m,r){return new THREE.MeshStandardMaterial({color:c,metalness:m,roughness:r});}
+function box(w,h,d,m){return new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);}
+function cyl(r,l,m){var c=new THREE.Mesh(new THREE.CylinderGeometry(r,r,l,32),m);c.rotation.x=Math.PI/2;return c;}
+
+var base=new THREE.Group();
+var gm=mat(0x8a93a0,0.5,0.5);
+var plate=box(2.4,0.3,1.5,gm);plate.position.y=-0.85;base.add(plate);
+var earL=box(1,1.2,0.25,gm),earR=box(1,1.2,0.25,gm);
+earL.position.set(0,-0.1,-0.5);earR.position.set(0,-0.1,0.5);
+var ears=new THREE.Group();ears.add(earL);ears.add(earR);base.add(ears);
+scene.add(base);
+
+var link=new THREE.Group();
+var om=mat(0xc4501b,0.3,0.5);
+var bar=box(0.5,2,0.6,om);bar.position.y=1;
+link.add(bar);link.add(cyl(0.45,0.6,om));
+var linkOuter=new THREE.Group();linkOuter.add(link);scene.add(linkOuter);
+
+var pin=cyl(0.2,1.6,mat(0x2a2a2a,0.9,0.3));scene.add(pin);
+
+var labels=[
+ {t:'Clevis (fixed link)',o:base,p:new THREE.Vector3(0.5,0.5,0.5)},
+ {t:'Moving link, eye',o:linkOuter,p:new THREE.Vector3(0,1.9,0.3)},
+ {t:'Pin: the only free axis is its own',o:pin,p:new THREE.Vector3(0,0,0.8)}
+].map(function(l){var e=document.createElement('div');e.className='lb';e.textContent=l.t;wrap.appendChild(e);l.e=e;return l;});
+
+var th=0.9,ph=1.2,dist=7.5,cur=0,tgt=0;
+var ex=document.getElementById('ex'),rot=document.getElementById('rot'),ang=document.getElementById('ang');
+ex.oninput=function(){tgt=ex.value/100;};
+rot.oninput=function(){ang.textContent=rot.value;};
+var down=false,lx=0,ly=0,cv=renderer.domElement;
+cv.addEventListener('pointerdown',function(e){down=true;lx=e.clientX;ly=e.clientY;wrap.style.cursor='grabbing';});
+addEventListener('pointerup',function(){down=false;wrap.style.cursor='grab';});
+addEventListener('pointermove',function(e){if(!down)return;th-=(e.clientX-lx)*0.008;ph=Math.max(0.3,Math.min(2.6,ph-(e.clientY-ly)*0.008));lx=e.clientX;ly=e.clientY;});
+
+function resize(){var w=wrap.clientWidth,h=wrap.clientHeight;renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();}
+addEventListener('resize',resize);resize();
+
+var v=new THREE.Vector3();
+function frame(){
+ cur+=(tgt-cur)*0.12;
+ ears.children[0].position.z=-0.5-0.9*cur;
+ ears.children[1].position.z=0.5+0.9*cur;
+ pin.position.z=3*cur;
+ linkOuter.position.y=1.6*cur;
+ link.rotation.z=-rot.value*Math.PI/180;
+ var d=dist+3.5*cur;
+ camera.position.set(d*Math.sin(ph)*Math.sin(th),d*Math.cos(ph)+0.4,d*Math.sin(ph)*Math.cos(th));
+ camera.lookAt(0,0.5+0.8*cur,0.8*cur);
+ renderer.render(scene,camera);
+ var w=wrap.clientWidth,h=wrap.clientHeight;
+ labels.forEach(function(l){v.copy(l.p);l.o.localToWorld(v);v.project(camera);l.e.style.left=((v.x+1)/2*w)+'px';l.e.style.top=((1-v.y)/2*h)+'px';});
+ requestAnimationFrame(frame);
+}
+frame();
+})();
+</script>
+</body></html>
